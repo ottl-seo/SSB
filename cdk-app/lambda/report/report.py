@@ -268,19 +268,21 @@ def generate_report(account, results):
     success = []
     error = []
 
-    for result in results:
-        for alert in result["alerts"]:
-            if alert["level"] == "Danger": danger.append(alert["title"])
-            elif alert["level"] == "Warning": warning.append(alert["title"])
-            elif alert["level"] == "Success": success.append(alert["title"])
-            elif alert["level"] == "Error": error.append(alert["title"])
+    for rr in results:
+        for result in rr:
+            for alert in result["alerts"]:
+                if alert["level"] == "Danger": danger.append(alert["title"])
+                elif alert["level"] == "Warning": warning.append(alert["title"])
+                elif alert["level"] == "Success": success.append(alert["title"])
+                elif alert["level"] == "Error": error.append(alert["title"])
 
 
     report += (generate_summary(account, date, danger, warning, success, error))
 
     contents = ""
-    for result in results:
-        contents += generate_content(result)
+    for rr in results:
+        for result in rr:
+            contents += generate_content(result)
     contents += "</div></div></div></div>"
     
     report += contents
