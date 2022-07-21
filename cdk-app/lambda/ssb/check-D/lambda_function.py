@@ -10,16 +10,10 @@ def lambda_handler(event, context):
     bucket = os.environ['Bucket'][13:]
     topic = os.environ["Topic"]
     
-    try:
-        iam = session.client('iam')
-        iam.generate_credential_report()
-    except:
-        pass
 
     try:
-        results = ssb.check10(session)
+        results = ssb.checks(session)
         print(results)
-        #results.sort(key=lambda x: x["title"])
         
         name = f"result-D-{datetime.date.today().isoformat()}.json"
 

@@ -11,13 +11,7 @@ def lambda_handler(event, context):
     topic = os.environ["Topic"]
     
     try:
-        iam = session.client('iam')
-        iam.generate_credential_report()
-    except:
-        pass
-
-    try:
-        results = ssb.check08(session)
+        results = ssb.checks(session)
         print(results)
         #results.sort(key=lambda x: x["title"])
         

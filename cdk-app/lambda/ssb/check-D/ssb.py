@@ -114,8 +114,46 @@ def check10(session):
 
 
 
+
+async def generate_async_check(check, session, _executor):
+
+    loop = asyncio.get_running_loop()
+    response = await loop.run_in_executor(_executor, check, session)
+    return response
+    
+
+
+async def async_checks(session, _executor, tests):
+
+    checks = [check09, check10]
+
+    task_list = [asyncio.ensure_future(generate_async_check(checks[i-1], session, _executor)) for i in tests]
+    
+
+    done, _ = await asyncio.wait(task_list)
+    results = [d.result() for d in done]
+
+    return results
+
+def checks(session, tests=[1,2]):
+
+    _executor = ThreadPoolExecutor(5)
+
+    try:
+        iam = session.client('iam')
+        iam.generate_credential_report()
+    except:
+        pass
+
+    s = time.time()
+    loop = asyncio.get_event_loop()
+    result = loop.run_until_complete(async_checks(session, _executor, tests))
+    print(time.time() - s)
+
+    return result
+    
 if __name__ == "__main__":
     import boto3
     session = boto3.Session()
 
-    print(check04(session))
+    print(check10(session))

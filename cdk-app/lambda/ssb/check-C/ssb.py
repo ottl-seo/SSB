@@ -28,30 +28,9 @@ def check08(session):
     ret = {
         "title": title,
         "alerts":[],
-        "tables": [
-            # {
-            #     "cols": ["리전", "VPC", "서브넷", "보안 그룹"],
-            #     "rows": []
-            # }
-        ]
+        "tables": []
     }
     
-
-    # try:
-    #     for region in regions:
-
-    #         ec2 = session.client('ec2', region_name=region)
-    #         vpcs = ec2.describe_vpcs()["Vpcs"]
-    #         subnets = ec2.describe_subnets()["Subnets"]
-    #         sgs = ec2.describe_security_groups()["SecurityGroups"]
-    #         print(f"{region:>15} {len(vpcs):^10} {len(subnets):^10} {len(sgs):^15}")
-    #         results.append((region, len(vpcs), len(subnets), len(sgs)))
-    #         append_table(ret, 0, [region, len(vpcs), len(subnets), len(sgs)])
-    #         # ec2.close()
-
-    # except Exception as error:
-    #     utils.print_error(error.response["Error"]["Message"])
-
     ret["alerts"].append({
         "level": text.test8["Warning"]["level"],
         "msg": text.test8["Warning"]["msg"],
@@ -92,10 +71,8 @@ def check06(session):
 
         for key, val in account_policy.items():
             if val:
-                # utils.print_pass(f"{key} is blocked")
                 pass
             else:
-                # utils.print_fail(f"{key} is NOT blocked")
                 code = "Warning"
 
         append_table(ret, 0, ["Account 설정", "일부 허용" if code == "Warning" else "차단"])
@@ -158,7 +135,6 @@ def check06(session):
 
     except botocore.exceptions.ClientError as error:
         if error.response["Error"]["Code"] == "NoSuchPublicAccessBlockConfiguration":
-            # utils.print_pass(error.response["Error"]["Message"])
             ret["alerts"].append({
                 "title": text.test6_1["title"],
                 "level": text.test6_1["Success"]["level"],
@@ -177,9 +153,45 @@ def check06(session):
 
     return ret
 
+async def generate_async_check(check, session, _executor):
+
+    loop = asyncio.get_running_loop()
+    response = await loop.run_in_executor(_executor, check, session)
+    return response
+    
+
+
+async def async_checks(session, _executor, tests):
+
+    checks = [check06, check08]
+
+    task_list = [asyncio.ensure_future(generate_async_check(checks[i-1], session, _executor)) for i in tests]
+    
+
+    done, _ = await asyncio.wait(task_list)
+    results = [d.result() for d in done]
+
+    return results
+
+def checks(session, tests=[1,2]):
+
+    _executor = ThreadPoolExecutor(5)
+
+    try:
+        iam = session.client('iam')
+        iam.generate_credential_report()
+    except:
+        pass
+
+    s = time.time()
+    loop = asyncio.get_event_loop()
+    result = loop.run_until_complete(async_checks(session, _executor, tests))
+    print(time.time() - s)
+
+    return result
 
 if __name__ == "__main__":
     import boto3
     session = boto3.Session()
 
-    print(check04(session))
+    print(check06(session))

@@ -1,2 +1,2 @@
 from ssb import text
-from ssb.ssb import check09, check10
+from ssb.ssb import checks
