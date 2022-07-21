@@ -169,7 +169,7 @@ def generate_li(items, level):
         
     return ret
 
-def generate_alert(level, msg):
+def generate_alert(title, level, msg):
     icons = {
         "Info": ["alert-primary", "#info-fill"],
         "Success": ["alert-success", "#check-circle-fill"],
@@ -178,12 +178,16 @@ def generate_alert(level, msg):
         "Error": ["alert-danger", "#info-fill"],
     }
 
+    code = ""
+    if title != "":
+        code = title.split()[0]
+
     return f"""
     <div class="alert {icons[level][0]} d-flex align-items-center" role="alert">
         <svg aria-label="{level}:" class="bi flex-shrink-0 me-2" width="24" height="24" role="img">
             <use xlink:href="{icons[level][1]}"></use>
         </svg>
-        <span>{msg}</span>
+        <span>{code} {msg}</span>
     </div>
     """
 def generate_table(table):
@@ -232,7 +236,7 @@ def generate_content(result):
     """
 
     for alert in alerts:
-        content += generate_alert(alert["level"], "&nbsp".join(map(generate_msg, alert["msg"])))
+        content += generate_alert(alert.get("title", ""), alert["level"], "&nbsp".join(map(generate_msg, alert["msg"])))
 
     # for table in tables:
     for table in tables:

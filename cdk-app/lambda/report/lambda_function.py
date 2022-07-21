@@ -13,42 +13,36 @@ lamb = boto3.client('lambda')
 
 def lambda_handler(event, context):
 
-    try:
-        obj = bucket.Object(f'result-{date.today().isoformat()}.json').get()
-        results = json.loads(obj["Body"].read().decode('utf-8'))
-        html = report.generate_report(account, results)
+    obj_A = bucket.Object(f'result-A-{date.today().isoformat()}.json').get()
+    obj_B = bucket.Object(f'result-B-{date.today().isoformat()}.json').get()
+    obj_C = bucket.Object(f'result-C-{date.today().isoformat()}.json').get()
+    obj_D = bucket.Object(f'result-D-{date.today().isoformat()}.json').get()
         
-        bucket.put_object(Key=f"report-{date.today().isoformat()}.html", Body=bytes(html.encode('UTF-8')))
+    # A,B,C,D 파일 읽어오고 
+    results_A = json.loads(obj_A["Body"].read().decode('utf-8'))
+    results_B = json.loads(obj_B["Body"].read().decode('utf-8'))
+    results_C = json.loads(obj_C["Body"].read().decode('utf-8'))
+    results_D = json.loads(obj_D["Body"].read().decode('utf-8'))
+    print(results_A)
+    print(results_B)
+    print(results_C)
+    print(results_D)
         
-        return {
-            'statusCode': 200,
-            "body": html,
-            "headers": {
-                'Content-Type': 'text/html',
-            }
+    ## 배열 results에 인덱스로 추가
+    results=[];
+    results.append(results_A)
+    results.append(results_B)
+    results.append(results_C)
+    results.append(results_D)
+    
+    #print(results)
+    html = report.generate_report(account, results)
+    bucket.put_object(Key=f"report-{date.today().isoformat()}.html", Body=bytes(html.encode('UTF-8')))
+    
+    return {
+        'statusCode': 200,
+        "body": html,
+        "headers": {
+            'Content-Type': 'text/html',
         }
-        
-    except Exception as e:
-
-        lamb.invoke(FunctionName=os.environ["SSB"].split(":")[-1], InvocationType='Event')
-
-        try:
-            bucket.Object("temp").get()
-            return {
-                'statusCode': 200,
-                "body": "레포트를 생성 중 입니다. 약 5분 후 새로고침해주세요. 이메일을 구독하셨다면, 메일로 알림을 받을 수 있습니다.",
-                "headers": {
-                    'Content-Type': 'text/html;charset=UTF-8',
-                }
-            }
-        
-        except:
-            bucket.put_object(Key="temp", Body="")
-            return {
-                'statusCode': 200,
-                "body": "레포트를 생성 중 입니다. 약 5분 후 새로고침해주세요. 이메일을 구독하셨다면, 메일로 알림을 받을 수 있습니다.",
-                "headers": {
-                    'Content-Type': 'text/html;charset=UTF-8',
-                }
-            }
-        
+    }
