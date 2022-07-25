@@ -61,7 +61,7 @@ test2_2 = {
         "level": "Danger",
         "msg": [
             {"text": "루트 계정에 MFA가 설정되어 있지 않습니다. 링크를 통해 설정해주세요.", "link": ""},
-            {"text": "(루트 계정 MFA 설정)", "link": "https://us-east-1.console.aws.amazon.com/billing/home?region=us-east-1#/account"}
+            {"text": "(루트 계정 MFA 설정)", "link": "https://docs.aws.amazon.com/ko_kr/IAM/latest/UserGuide/id_credentials_mfa_enable_virtual.html"}
         ]
     },
 
@@ -86,7 +86,7 @@ test2_3 = {
         "level": "Danger",
         "msg": [
         {"text": "루트 계정에 Access Key가 생성되어 있습니다. 루트 계정의 Access Key를 삭제해주세요.", "link": ""},
-        {"text": "(Access Key 삭제)", "link": "https://us-east-1.console.aws.amazon.com/billing/home?region=us-east-1#/account"}
+        {"text": "(Access Key 삭제)", "link": "https://docs.aws.amazon.com/ko_kr/IAM/latest/UserGuide/id_root-user.html#id_root-user_manage_delete-key"}
         ]
     },
 
@@ -116,9 +116,10 @@ test3_1 = {
     },
 
     "NO_USER": {
-        "level": "Danger",
+        "level": "Warning",
         "msg": [
-            {"text": "IAM User가 존재하지 않습니다. 루트 계정으로 직접 AWS의 서비스를 이용하지 마세요", "link": ""}
+            {"text": "IAM User가 존재하지 않습니다.", "link": ""},
+            {"text": "루트 계정을 사용하는 것이 아닌, IAM Role로 엑세스하는 경우 경고를 무시하셔도 좋습니다.", "link": ""},
         ]
     },
     
@@ -168,9 +169,10 @@ test4 = {
     },
 
     "NO_USER": {
-        "level": "Danger",
+        "level": "Warning",
         "msg": [
-            {"text": "IAM User가 존재하지 않습니다. 루트 계정으로 직접 AWS의 서비스를 이용하지 마세요", "link": ""}
+            {"text": "IAM User가 존재하지 않습니다.", "link": ""},
+            {"text": "루트 계정을 사용하는 것이 아닌, IAM Role로 엑세스하는 경우 경고를 무시하셔도 좋습니다.", "link": ""},
         ]
     },
 
@@ -399,7 +401,9 @@ test9 = {
     "Subscribe": {
         "level": "Warning",
         "msg": [
-                {"text": " Business Support 이상의 Support Plan 을 이용하시면 Trusted Advisor 에서 더 다양한 지표들에 대해 점검하고 조치 가이드를 받으실 수 있습니다.", "link":""}, 
+                {"text": "Basic Support 플랜의", "link":""},
+                {"text": "Trusted Advisor", "link":"https://aws.amazon.com/ko/premiumsupport/knowledge-center/trusted-advisor-intro/"},
+                {"text": "에서는 콘솔을 통하여만 확인이 가능합니다. Business Support 이상의 Support Plan 을 이용하시면 Trusted Advisor 에서 더 다양한 지표들에 대해 점검하고 조치 가이드를 받으실 수 있습니다.", "link":""}, 
             ]
     },
     

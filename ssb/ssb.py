@@ -1,9 +1,12 @@
 import botocore.exceptions
 from datetime import datetime, timedelta
-from . import text
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import time
+
+import sys, os
+sys.path.append(os.path.dirname(__file__))
+import text
 
 def append_alert(ret, alert, title):
     ret["alerts"].append({
@@ -443,10 +446,8 @@ def check06(session):
 
         for key, val in account_policy.items():
             if val:
-                # utils.print_pass(f"{key} is blocked")
                 pass
             else:
-                # utils.print_fail(f"{key} is NOT blocked")
                 code = "Warning"
 
         append_table(ret, 0, ["Account 설정", "일부 허용" if code == "Warning" else "차단"])
@@ -486,8 +487,6 @@ def check06(session):
                 return bucket, True
 
 
-
-
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         results = loop.run_until_complete(execute())
@@ -496,9 +495,8 @@ def check06(session):
         for bucket, status in results:
             if status == False:
                 code_bucket = "Danger"
-            append_table(ret, 0, [bucket, "차단" if status else "일부 허용"])                
+                append_table(ret, 0, [bucket, "일부 허용"])                
         
-
 
         if code == "Warning":
             ret["alerts"].append({
@@ -562,7 +560,6 @@ def check07(session):
         results = [d.result() for d in done]
         return results
 
-
     code = "Success"
     try:
 
@@ -584,7 +581,6 @@ def check07(session):
 
 
         if len(alarms_tot) == 0:
-            # utils.print_fail("No alarm found")
             code = "NO_ALARM"
         else:
             code = "Success"
@@ -619,28 +615,63 @@ def check08(session):
         "title": title,
         "alerts":[],
         "tables": [
-            # {
-            #     "cols": ["리전", "VPC", "서브넷", "보안 그룹"],
-            #     "rows": []
-            # }
+            {
+                "cols": ["리전", "사용 중인 VPC 수", "생성된 VPC 수 (default 값)", "사용 중인 서브넷 수", "생성된 서브넷 수 (default 값)"],
+                "rows": []
+            }
         ]
     }
     
+    regions = sorted(list(map(lambda x: x["RegionName"], session.client("ec2").describe_regions()["Regions"])))
+    _executor = ThreadPoolExecutor(20)
 
-    # try:
-    #     for region in regions:
+    async def run(region):
+        loop = asyncio.get_running_loop()
+        response = await loop.run_in_executor(_executor, count_vpcs, region)
+        return response
 
-    #         ec2 = session.client('ec2', region_name=region)
-    #         vpcs = ec2.describe_vpcs()["Vpcs"]
-    #         subnets = ec2.describe_subnets()["Subnets"]
-    #         sgs = ec2.describe_security_groups()["SecurityGroups"]
-    #         print(f"{region:>15} {len(vpcs):^10} {len(subnets):^10} {len(sgs):^15}")
-    #         results.append((region, len(vpcs), len(subnets), len(sgs)))
-    #         append_table(ret, 0, [region, len(vpcs), len(subnets), len(sgs)])
-    #         # ec2.close()
+    async def execute():
+        task_list = [asyncio.ensure_future(run(region)) for region in regions]
+        done, _ = await asyncio.wait(task_list)
 
-    # except Exception as error:
-    #     utils.print_error(error.response["Error"]["Message"])
+        results = [d.result() for d in done]
+        return results
+
+
+    def count_vpcs(region):
+        ec2 = session.client("ec2", region_name=region)
+
+        vpcs_using = set()
+        subnets_using = set()
+
+        for eni in ec2.describe_network_interfaces()["NetworkInterfaces"]:
+            if eni["Status"] == "in-use":
+                vpcs_using.add(eni["VpcId"])
+                subnets_using.add(eni["SubnetId"])
+        
+        vpcs_exist = len(ec2.describe_vpcs()["Vpcs"])
+        subnets = ec2.describe_subnets()["Subnets"]
+        subnet_exist = len(subnets)
+        subnets_default = 0
+        for subnet in subnets:
+            if subnet["DefaultForAz"]:
+                subnets_default += 1
+
+        return [region, len(vpcs_using), f"{vpcs_exist} (1)", len(subnets_using), f"{subnet_exist}({subnets_default})"]
+
+
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        results = loop.run_until_complete(execute())
+        loop.close()
+
+        results.sort(key=lambda x:x[0])
+        for row in results:
+            append_table(ret, 0, row)
+
+    except Exception as error:
+        print(error)
 
     ret["alerts"].append({
         "level": text.test8["Warning"]["level"],
@@ -678,7 +709,6 @@ def check09(session):
 
     except botocore.exceptions.ClientError as error:
         if error.response["Error"]["Code"] == "SubscriptionRequiredException":
-            append_table(ret, 0, [text.test9["Subscribe"]["msg"][0]["text"]])
             code = "Subscribe"
             
         else:
@@ -767,7 +797,7 @@ async def async_checks(session, _executor, tests):
 
 def checks(session, tests=[1,2,3,4,5,6,7,8,9,10]):
 
-    _executor = ThreadPoolExecutor(20)
+    _executor = ThreadPoolExecutor(10)
 
     try:
         iam = session.client('iam')
@@ -781,3 +811,10 @@ def checks(session, tests=[1,2,3,4,5,6,7,8,9,10]):
     print(time.time() - s)
 
     return result
+
+
+if __name__ == "__main__":
+    import boto3
+    session = boto3.Session()
+
+    print(check08(session))

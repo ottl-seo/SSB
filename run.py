@@ -16,7 +16,7 @@ try:
         with open('./report.html', 'w') as f:
             f.write(html)
 
-    except:
+    except Exception as e:
         print("리포트 생성 중 오류가 발생하였습니다.")
 
 except Exception as e:

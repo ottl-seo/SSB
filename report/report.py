@@ -7,8 +7,7 @@ header = """<!DOCTYPE html>
     </meta>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     </meta>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet">
     </link>
     <title>Report</title>
 </head>
@@ -36,9 +35,15 @@ footer = """
             <div class="col"></div>
         </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-pprn3073KE6tl6bjs2QrFaJGz5/SUsLqktiwsUTF55Jfv3qYSDhgCecCxMW52nD2"
-        crossorigin="anonymous"></script>
+    <script>
+        function click_summary(x){
+            if(x.className === "accordion-button collapsed"){
+                x.click()
+            }
+        }
+    
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>"""
@@ -154,7 +159,7 @@ def generate_li(items, level):
 
         ret += f'''<li class="list-group-item d-flex justify-content-between align-items-start">
             <div class="ms-2 me-auto">
-                <a href="#panelsStayOpen-heading{testNum}" onclick="document.querySelector('#panelsStayOpen-heading{testNum} button').click()"> {item} </a>
+                <a href="#panelsStayOpen-heading{testNum}" onclick="click_summary(document.querySelector('#panelsStayOpen-heading{testNum} button'))"> {item} </a>
             </div>
             <span class="badge text-bg-{"danger" if level == "error" else level} rounded-pill">{level.capitalize()}</span>
             </li>'''
@@ -169,7 +174,7 @@ def generate_li(items, level):
         
     return ret
 
-def generate_alert(level, msg):
+def generate_alert(title, level, msg):
     icons = {
         "Info": ["alert-primary", "#info-fill"],
         "Success": ["alert-success", "#check-circle-fill"],
@@ -178,12 +183,16 @@ def generate_alert(level, msg):
         "Error": ["alert-danger", "#info-fill"],
     }
 
+    code = ""
+    if title != "":
+        code = title.split()[0]
+
     return f"""
     <div class="alert {icons[level][0]} d-flex align-items-center" role="alert">
         <svg aria-label="{level}:" class="bi flex-shrink-0 me-2" width="24" height="24" role="img">
             <use xlink:href="{icons[level][1]}"></use>
         </svg>
-        <span>{msg}</span>
+        <span>{code} {msg}</span>
     </div>
     """
 def generate_table(table):
@@ -232,7 +241,7 @@ def generate_content(result):
     """
 
     for alert in alerts:
-        content += generate_alert(alert["level"], "&nbsp".join(map(generate_msg, alert["msg"])))
+        content += generate_alert(alert.get("title", ""), alert["level"], "&nbsp".join(map(generate_msg, alert["msg"])))
 
     # for table in tables:
     for table in tables:
@@ -255,7 +264,8 @@ def generate_msg(msg):
 
 def generate_report(account, results):
 
-    date = datetime.datetime.now().isoformat()
+    KST = datetime.timezone(datetime.timedelta(hours=9))
+    date = datetime.datetime.now(tz=KST).isoformat()
     report = ""
     report += header
 
