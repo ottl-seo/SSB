@@ -23,19 +23,17 @@ def lambda_handler(event, context):
     results_B = json.loads(obj_B["Body"].read().decode('utf-8'))
     results_C = json.loads(obj_C["Body"].read().decode('utf-8'))
     results_D = json.loads(obj_D["Body"].read().decode('utf-8'))
-    print(results_A)
-    print(results_B)
-    print(results_C)
-    print(results_D)
-        
+
     ## 배열 results에 인덱스로 추가
-    results=[];
-    results.append(results_A)
-    results.append(results_B)
-    results.append(results_C)
-    results.append(results_D)
+    results = []
+    allLambdaResult=[results_A, results_B, results_C, results_D];
+    for eachLambdaResult in allLambdaResult:
+        for result in eachLambdaResult:
+            results.append(result)
     
-    #print(results)
+    # 정렬
+    results.sort(key=lambda x: x["title"])
+    
     html = report.generate_report(account, results)
     bucket.put_object(Key=f"report-{date.today().isoformat()}.html", Body=bytes(html.encode('UTF-8')))
     

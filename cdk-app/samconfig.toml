@@ -1,0 +1,12 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "ssb-test-app"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-1hsz7pgbzgjoy"
+s3_prefix = "ssb-test-app"
+region = "us-west-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "Email=\"ottlseo@amazon.com\" ExpireDate=\"2022-07-30T12:00:00+09:00\" APIKeyRequired=\"false\""
+image_repositories = []

@@ -1,0 +1,288 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: An serverless application that tests the AWS SSB and generates a HTML
+  report.
+Parameters:
+  Email:
+    Type: String
+    Description: 이메일을 입력하시고 메일을 통하여 알림을 구독할 경우 리포트 생성 알림을 받을 수 있습니다.
+  ExpireDate:
+    Description: API Endpoint의 접속이 만료되는 날짜를 설정해주세요. 만료 후에는 접속이 불가합니다.
+    Type: String
+    Default: '2022-07-30T12:00:00+09:00'
+    AllowedPattern: ^\d{4}(-\d{2}){2}[T](\d{2}:){2}\d{2}\+09:00$
+  APIKeyRequired:
+    Description: API 호출을 위해 Key를 생성합니다.
+    Default: 'false'
+    Type: String
+    AllowedValues:
+    - 'true'
+    - 'false'
+Resources:
+  SSBBucket:
+    Type: AWS::S3::Bucket
+    Metadata:
+      SamResourceId: SSBBucket
+  SSBExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: read
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - sts:GetCallerIdentity
+            - ec2:DescribeRegions
+            - account:GetAlternateContact
+            - iam:GenerateCredentialReport
+            - iam:GetCredentialReport
+            - iam:GetAccountPasswordPolicy
+            - iam:ListUsers
+            - iam:ListAttachedUserPolicies
+            - iam:ListUserPolicies
+            - cloudtrail:DescribeTrails
+            - cloudtrail:GetTrailStatus
+            - s3:GetAccountPublicAccessBlock
+            - s3:GetBucketPublicAccessBlock
+            - s3:ListBucket
+            - s3:ListAllMyBuckets
+            - s3:PutObject
+            - s3:DeleteObject
+            - cloudwatch:DescribeAlarms
+            - ec2:DescribeNetworkInterfaces
+            - ec2:DescribeVpcs
+            - ec2:DescribeSubnets
+            - support:DescribeTrustedAdvisorChecks
+            - guardduty:ListDetectors
+            - guardduty:GetDetector
+            - sns:Publish
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: '*'
+    Metadata:
+      SamResourceId: SSBExecutionRole
+  ReportExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: s3Access
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:DeleteObject
+            - lambda:InvokeFunction
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: '*'
+    Metadata:
+      SamResourceId: ReportExecutionRole
+  SnsTopicMetricFilterCloudWatchAlarm:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+      - Endpoint:
+          Ref: Email
+        Protocol: email
+      TopicName: SSB-generation-alarm
+    Metadata:
+      SamResourceId: SnsTopicMetricFilterCloudWatchAlarm
+  
+##########################################################################
+#  Lambda functions                                                      #
+##########################################################################
+  CheckAFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      Role:
+        Fn::GetAtt:
+        - SSBExecutionRole
+        - Arn
+      CodeUri: lambda/ssb/checkA/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.9
+      Timeout: 600
+      MemorySize: 256
+      Environment:
+        Variables:
+          Bucket:
+            Fn::GetAtt:
+            - SSBBucket
+            - Arn
+      Architectures:
+      - x86_64
+    Metadata:
+      SamResourceId: CheckAFunction
+  CheckBFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      Role:
+        Fn::GetAtt:
+        - SSBExecutionRole
+        - Arn
+      CodeUri: lambda/ssb/checkB/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.9
+      Timeout: 600
+      MemorySize: 256
+      Environment:
+        Variables:
+          Bucket:
+            Fn::GetAtt:
+            - SSBBucket
+            - Arn
+      Architectures:
+      - x86_64
+    Metadata:
+      SamResourceId: CheckBFunction
+  CheckCFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      Role:
+        Fn::GetAtt:
+        - SSBExecutionRole
+        - Arn
+      CodeUri: lambda/ssb/checkC/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.9
+      Timeout: 600
+      MemorySize: 256
+      Environment:
+        Variables:
+          Bucket:
+            Fn::GetAtt:
+            - SSBBucket
+            - Arn
+      Architectures:
+      - x86_64
+    Metadata:
+      SamResourceId: CheckCFunction
+  CheckDFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      Role:
+        Fn::GetAtt:
+        - SSBExecutionRole
+        - Arn
+      CodeUri: lambda/ssb/checkD/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.9
+      Timeout: 600
+      MemorySize: 256
+      Environment:
+        Variables:
+          Bucket:
+            Fn::GetAtt:
+            - SSBBucket
+            - Arn
+      Architectures:
+      - x86_64
+    Metadata:
+      SamResourceId: CheckDFunction
+  ApiGatewayEndpoint:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      Auth:
+        ApiKeyRequired: true
+        UsagePlan:
+          CreateUsagePlan: PER_API
+          UsagePlanName: GatewayAuthorization
+        ResourcePolicy:
+          CustomStatements:
+            Effect: Allow
+            Principal: '*'
+            Action: execute-api:Invoke
+            Resource:
+            - execute-api:/*/*/*
+            Condition:
+              DateLessThan:
+                aws:CurrentTime:
+                  Ref: ExpireDate
+    Metadata:
+      SamResourceId: ApiGatewayEndpoint
+  ReportFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      Role:
+        Fn::GetAtt:
+        - ReportExecutionRole
+        - Arn
+      CodeUri: lambda/report/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.9
+      Timeout: 10
+      Environment:
+        Variables:
+          Bucket:
+            Fn::GetAtt:
+            - SSBBucket
+            - Arn
+      Architectures:
+      - x86_64
+      Events:
+        Report:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ApiGatewayEndpoint
+            Path: /
+            Method: get
+    Metadata:
+      SamResourceId: ReportFunction
+
+##########################################################################
+#   STEP FUNCTION                                                        #
+##########################################################################
+  SSBStateMachine:
+    Type: 'AWS::Serverless::StateMachine'
+    Properties:
+      DefinitionUri: statemachine/statemachine.asl.json
+      DefinitionSubstitutions:
+        checkAFunction: !Ref CheckAFunction
+        checkBFunction: !Ref CheckBFunction
+        checkCFunction: !Ref CheckCFunction
+        checkDFunction: !Ref CheckDFunction
+        reportFunction: !Ref ReportFunction
+        ApiGatewayEndpoint: !Ref ApiGatewayEndpoint
+        snsTopic: SnsTopicMetricFilterCloudWatchAlarm
+      Policies:
+        - LambdaInvokePolicy: 
+            FunctionName: !Ref CheckAFunction
+        - LambdaInvokePolicy: 
+            FunctionName: !Ref CheckBFunction
+        - LambdaInvokePolicy: 
+            FunctionName: !Ref CheckCFunction
+        - LambdaInvokePolicy: 
+            FunctionName: !Ref CheckDFunction
+        - LambdaInvokePolicy: 
+            FunctionName: !Ref ReportFunction
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt SnsTopicMetricFilterCloudWatchAlarm.TopicName

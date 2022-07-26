@@ -6,34 +6,22 @@ import os
 
 def lambda_handler(event, context):
     session = boto3.Session()
-    sns = session.client("sns")
     bucket = os.environ['Bucket'][13:]
-    topic = os.environ["Topic"]
     
+    results = ssb.checks(session)
+    print(results)    
+    name = f"result-D-{datetime.date.today().isoformat()}.json"
 
-    try:
-        results = ssb.checks(session)
-        print(results)
-        
-        name = f"result-D-{datetime.date.today().isoformat()}.json"
-
-        if upload_file(bucket, name, json.dumps(results)):
-            sns.publish(TopicArn=topic, Message="리포트 D가 생성되었습니다.")
-            return {
+    if upload_file(bucket, name, json.dumps(results)):
+        return {
             'statusCode': 200,
             "body": json.dumps("upload success"),
-            }
-        else:
-            sns.publish(TopicArn=topic, Message="리포트 D 생성 중 오류가 발생하였습니다.")
-            return {
+        }
+    else:
+        return {
             'statusCode': 400,
             'body': json.dumps("upload fail")
-            }
-    except:
-        sns.publish(TopicArn=topic, Message="리포트 D 생성 중 오류가 발생하였습니다.")
-
-
-
+        }
     
 def upload_file(bucket, name, file):
     encoded = bytes(file.encode('UTF-8'))

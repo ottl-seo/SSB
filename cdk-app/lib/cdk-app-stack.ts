@@ -9,7 +9,6 @@ import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as s3n from "aws-cdk-lib/aws-s3-notifications";
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import { DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
-import { CfnDeliveryStream } from 'aws-cdk-lib/aws-kinesisfirehose';
 import * as sns from 'aws-cdk-lib/aws-sns';
 //import * as ssm from 'aws-cdk-lib/aws-ssm';
 //
