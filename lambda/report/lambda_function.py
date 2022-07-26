@@ -23,17 +23,28 @@ def lambda_handler(event, context):
     results_B = json.loads(obj_B["Body"].read().decode('utf-8'))
     results_C = json.loads(obj_C["Body"].read().decode('utf-8'))
     results_D = json.loads(obj_D["Body"].read().decode('utf-8'))
-
+    
+    # Fix: array가 아니어서 생기는 오류
+    result_Blist = []
+    result_Blist.append(results_B)
+    result_Clist = []
+    result_Clist.append(results_C)
+    
     ## 배열 results에 인덱스로 추가
     results = []
-    allLambdaResult=[results_A, results_B, results_C, results_D];
+    allLambdaResult=[results_A, result_Blist, result_Clist, results_D];
     for eachLambdaResult in allLambdaResult:
-        for result in eachLambdaResult:
-            results.append(result)
+        for r in eachLambdaResult:
+            results.append(r)
+    
+    name = f"results.json"
+    upload_file(bucket, name, json.dumps(results))
+    
+    return 0
     
     # 정렬
-    results.sort(key=lambda x: x["title"])
-    
+    #results.sort(key=lambda x: x[0])
+    """
     html = report.generate_report(account, results)
     bucket.put_object(Key=f"report-{date.today().isoformat()}.html", Body=bytes(html.encode('UTF-8')))
     
@@ -44,3 +55,13 @@ def lambda_handler(event, context):
             'Content-Type': 'text/html',
         }
     }
+    """
+    
+def upload_file(bucket, name, file):
+    encoded = bytes(file.encode('UTF-8'))
+    s3 = boto3.client('s3')
+    try:
+        s3.put_object(Bucket=bucket, Key=name, Body=encoded)
+        return True
+    except:
+        return False
