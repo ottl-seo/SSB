@@ -1,28 +1,36 @@
 import boto3
-from datetime import date
-import json
-import report
+from datetime import date, datetime, timedelta, timezone
 import os
-
-sts = boto3.client("sts")
-account = sts.get_caller_identity()["Account"]
-
-resource = boto3.resource('s3')
-bucket = resource.Bucket(os.environ["Bucket"][13:])
-lamb = boto3.client('lambda')
 
 def lambda_handler(event, context):
 
+    s3 = boto3.client('s3', config=boto3.session.Config(s3={'addressing_style': 'path'}, signature_version='s3v4'))
+    sns= boto3.client("sns")
+    bucket_name = os.environ["Bucket"][13:]
+    object_name = f'result-{date.today().isoformat()}.html'
+
+    topic = os.environ["Topic"]
+
     try:
-        obj = bucket.Object(f'result-{date.today().isoformat()}.json').get()
-        results = json.loads(obj["Body"].read().decode('utf-8'))
-        html = report.generate_report(account, results)
+        response = s3.generate_presigned_url('get_object',
+                                                Params={'Bucket': bucket_name,
+                                                        'Key': object_name},
+                                                ExpiresIn=3600)        
         
-        bucket.put_object(Key=f"report-{date.today().isoformat()}.html", Body=bytes(html.encode('UTF-8')))
-        
+        KST = timezone(timedelta(hours=9))
+        expired = datetime.now(tz=KST) + timedelta(hours=1)
+
+        sns.publish(TopicArn=topic, Message=f"""        
+        리포트 파일의 미리 서명된(pre-signed) url을 생성하였습니다.
+        {expired.isoformat()} 까지 접속 가능합니다.
+
+        {response}
+        """)
+
+
         return {
             'statusCode': 200,
-            "body": html,
+            "body": "Success",
             "headers": {
                 'Content-Type': 'text/html',
             }
@@ -30,25 +38,16 @@ def lambda_handler(event, context):
         
     except Exception as e:
 
-        lamb.invoke(FunctionName=os.environ["SSB"].split(":")[-1], InvocationType='Event')
+        sns.publish(TopicArn=topic, Message=f"""        
+        리포트를 불러오는 중 오류가 발생하였습니다.
 
-        try:
-            bucket.Object("temp").get()
-            return {
-                'statusCode': 200,
-                "body": "레포트를 생성 중 입니다. 약 5분 후 새로고침해주세요. 이메일을 구독하셨다면, 메일로 알림을 받을 수 있습니다.",
-                "headers": {
-                    'Content-Type': 'text/html;charset=UTF-8',
-                }
+        {e}
+        """)
+
+        return {
+            'statusCode': 400,
+            "body": "Failed",
+            "headers": {
+                'Content-Type': 'text/html',
             }
-        
-        except:
-            bucket.put_object(Key="temp", Body="")
-            return {
-                'statusCode': 200,
-                "body": "레포트를 생성 중 입니다. 약 5분 후 새로고침해주세요. 이메일을 구독하셨다면, 메일로 알림을 받을 수 있습니다.",
-                "headers": {
-                    'Content-Type': 'text/html;charset=UTF-8',
-                }
-            }
-        
+        }

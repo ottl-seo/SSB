@@ -1,4 +1,3 @@
-import report
 import ssb
 import boto3
 
@@ -11,7 +10,7 @@ try:
     try:
         sts = session.client("sts")
         account = sts.get_caller_identity()["Account"]
-        html = report.generate_report(account, results)
+        html = ssb.generate_report(account, results)
 
         with open('./report.html', 'w') as f:
             f.write(html)

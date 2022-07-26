@@ -11,12 +11,6 @@ Parameters:
     Type : "String"
     Default : "2022-07-30T12:00:00+09:00"
     AllowedPattern : "^\\d{4}(-\\d{2}){2}[T](\\d{2}:){2}\\d{2}\\+09:00$"
-  APIKeyRequired:
-    Description : "API 호출을 위해 Key를 생성합니다."
-    Default: "false"
-    Type: "String"
-    AllowedValues: ["true", "false"]
-
 
 Resources:
   SSBBucket:
@@ -36,7 +30,7 @@ Resources:
               - 'sts:AssumeRole'
       Path: /
       Policies:
-        - PolicyName: read
+        - PolicyName: SSBCheckPolicy
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -67,11 +61,12 @@ Resources:
                   - 'guardduty:ListDetectors'
                   - 'guardduty:GetDetector'
                   - 'sns:Publish'
+                  - 'lambda:InvokeFunction'
                   - 'logs:CreateLogGroup'
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
                 Resource: '*'
-  ReportExecutionRole:
+  LambdaExecutionRole:
     Type: 'AWS::IAM::Role'
     Properties:
       AssumeRolePolicyDocument:
@@ -85,28 +80,30 @@ Resources:
               - 'sts:AssumeRole'
       Path: /
       Policies:
-        - PolicyName: s3Access
+        - PolicyName: S3andLambdaPolicy
           PolicyDocument:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
                 Action:
+                  - 'sts:GetCallerIdentity'
                   - 's3:PutObject'
                   - 's3:GetObject'
                   - 's3:DeleteObject'
                   - 'lambda:InvokeFunction'
+                  - 'sns:Publish'
+                  - 'sns:ListSubscriptionsByTopic'
                   - 'logs:CreateLogGroup'
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
                 Resource: '*'
 
-  SnsTopicMetricFilterCloudWatchAlarm:
+  SnsTopic:
     Type: AWS::SNS::Topic
     Properties:
       Subscription:
         - Endpoint: !Ref Email
           Protocol: 'email'
-      TopicName: "SSB-generation-alarm"
 
   SSBFunction:
     Type: AWS::Serverless::Function
@@ -120,7 +117,8 @@ Resources:
       Environment: 
         Variables:
           Bucket: !GetAtt SSBBucket.Arn
-          Topic: !Ref SnsTopicMetricFilterCloudWatchAlarm
+          Report: !Ref ReportFunction
+          Topic: !Ref SnsTopic
       Architectures:
         - x86_64
 
@@ -129,10 +127,6 @@ Resources:
     Properties:
       StageName: Prod
       Auth:
-        ApiKeyRequired: true
-        UsagePlan:
-          CreateUsagePlan: PER_API
-          UsagePlanName: GatewayAuthorization
         ResourcePolicy:
           CustomStatements: {
               Effect: "Allow",
@@ -149,7 +143,7 @@ Resources:
   ReportFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: !GetAtt ReportExecutionRole.Arn
+      Role: !GetAtt LambdaExecutionRole.Arn
       CodeUri: report/
       Handler: lambda_function.lambda_handler
       Runtime: python3.9
@@ -157,7 +151,24 @@ Resources:
       Environment: 
         Variables:
           Bucket: !GetAtt SSBBucket.Arn
+          Topic: !Ref SnsTopic
+      Architectures:
+        - x86_64
+
+  EntryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !GetAtt LambdaExecutionRole.Arn
+      CodeUri: entry/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.9
+      Timeout: 10
+      Environment: 
+        Variables:
+          Bucket: !GetAtt SSBBucket.Arn
           SSB: !GetAtt SSBFunction.Arn
+          Report: !GetAtt ReportFunction.Arn
+          Topic: !Ref SnsTopic
       Architectures:
         - x86_64
       Events:
@@ -168,29 +179,11 @@ Resources:
                 Ref: ApiGatewayEndpoint
             Path: /
             Method: get
+  
 Outputs:
   SSBApi:
     Description: "API Gateway endpoint URL for Prod stage for SSB function"
     Value: !Sub "https://${ApiGatewayEndpoint}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
-  SSBFunction:
-    Description: "SSB Lambda Function ARN"
-    Value: !GetAtt SSBFunction.Arn
-  SSBFunctionIamRole:
-    Description: "Implicit IAM Role created for SSB function"
-    Value: !GetAtt SSBExecutionRole.Arn
-  ReportFunction:
-    Description: "Report Lambda Function ARN"
-    Value: !GetAtt ReportFunction.Arn
-  ReportFunctionIamRole:
-    Description: "Implicit IAM Role created for Report function"
-    Value: !GetAtt ReportExecutionRole.Arn
-  SSBBucket:
-    Description: "Bucket which contains result data"
-    Value: !GetAtt SSBBucket.Arn
-  ApiKey:
-    Description: "You can find your API Key in the AWS console: (Put in the request HEADER as 'x-api-key')"
-    Value: !Sub "https://console.aws.amazon.com/apigateway/home?region=${AWS::Region}#/api-keys/${ApiGatewayEndpointApiKey}"
-
 
 Metadata:
   AWS::ServerlessRepo::Application:
@@ -200,5 +193,5 @@ Metadata:
     SpdxLicenseId: Apache-2.0
     LicenseUrl: LICENSE
     ReadmeUrl: README.md
-    SemanticVersion: 1.0.3
+    SemanticVersion: 1.1.0
     SourceCodeUrl: https://github.com/kyoonkwon/SSB
