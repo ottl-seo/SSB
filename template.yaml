@@ -6,11 +6,17 @@ Parameters:
   Email:
     Type: "String"
     Description: "이메일을 입력하시고 메일을 통하여 알림을 구독할 경우 리포트 생성 알림을 받을 수 있습니다."
-  ExpireDate:
-    Description : "API Endpoint의 접속이 만료되는 날짜를 설정해주세요. 만료 후에는 접속이 불가합니다."
+  APIExpireDate:
+    Description : "API Endpoint의 접속이 만료되는 날짜를 설정해주세요. 만료 후에는 API Endpoint를 통한 접속이 불가합니다."
     Type : "String"
-    Default : "2022-07-30T12:00:00+09:00"
+    Default : "2022-08-30T12:00:00+09:00"
     AllowedPattern : "^\\d{4}(-\\d{2}){2}[T](\\d{2}:){2}\\d{2}\\+09:00$"
+  PreSignedURL:
+    Description : "리포트를 다운로드할 수 있도록 생성되는 pre-signed URL의 유효시간을 시간 단위로 설정해주세요. (1시간 ~ 168시간) 만료 후에는 URL을 통한 다운로드가 불가합니다."
+    Type : "Number"
+    Default : 24
+    MinValue: 1
+    MaxValue: 168
 
 Resources:
   SSBBucket:
@@ -135,7 +141,7 @@ Resources:
               Resource: ['execute-api:/*/*/*'],
               Condition: {
                 DateLessThan: {
-                  "aws:CurrentTime": !Ref ExpireDate
+                  "aws:CurrentTime": !Ref APIExpireDate
                 }
               }
           }
@@ -152,6 +158,7 @@ Resources:
         Variables:
           Bucket: !GetAtt SSBBucket.Arn
           Topic: !Ref SnsTopic
+          Presigned: !Ref PreSignedURL
       Architectures:
         - x86_64
 
@@ -193,5 +200,5 @@ Metadata:
     SpdxLicenseId: Apache-2.0
     LicenseUrl: LICENSE
     ReadmeUrl: README.md
-    SemanticVersion: 1.1.0
+    SemanticVersion: 1.1.1
     SourceCodeUrl: https://github.com/kyoonkwon/SSB

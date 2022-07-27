@@ -10,19 +10,21 @@ def lambda_handler(event, context):
     object_name = f'result-{date.today().isoformat()}.html'
 
     topic = os.environ["Topic"]
+    presigned = int(os.environ["Presigned"])
 
     try:
         response = s3.generate_presigned_url('get_object',
                                                 Params={'Bucket': bucket_name,
                                                         'Key': object_name},
-                                                ExpiresIn=3600)        
+                                                ExpiresIn=presigned * 60 * 60)        
         
         KST = timezone(timedelta(hours=9))
-        expired = datetime.now(tz=KST) + timedelta(hours=1)
+        expired = datetime.now(tz=KST) + timedelta(hours=presigned)
 
         sns.publish(TopicArn=topic, Message=f"""        
         리포트 파일의 미리 서명된(pre-signed) url을 생성하였습니다.
-        {expired.isoformat()} 까지 접속 가능합니다.
+        {expired.isoformat()} 까지 다운로드가 가능합니다.
+        url이 길어서 일부만 링크되었을 수 있습니다. 그럴 경우, 아래 링크를 전부 복사하여 접속해주세요.
 
         {response}
         """)
