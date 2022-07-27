@@ -1,5 +1,5 @@
 import boto3
-from datetime import date
+from datetime import date, datetime, timezone, timedelta
 import os
 
 def lambda_handler(event, context):
@@ -13,6 +13,7 @@ def lambda_handler(event, context):
     topic = os.environ["Topic"]
     
     subscriptions = sns.list_subscriptions_by_topic(TopicArn = topic)["Subscriptions"]
+    endpoints = list(map(lambda x: x["Endpoint"], subscriptions))
 
     for sub in subscriptions:
         if sub["SubscriptionArn"] != "PendingConfirmation":
@@ -20,32 +21,47 @@ def lambda_handler(event, context):
     else:
         return {
             'statusCode': 400,
-            "body": "이메일로 발송된 topic을 먼저 subscribe 해주세요.",
+            "body": f"이메일로 발송된 topic을 먼저 subscribe 해주세요. {endpoints}",
             "headers": {
                 'Content-Type': 'text/html;charset=UTF-8',
             }
         }
 
-    endpoints = list(map(lambda x: x["Endpoint"], subscriptions))
-
+    flag = True
+    last_modified = datetime.now(timezone.utc)
     try:
-        bucket.Object(f'result-{date.today().isoformat()}.html').get()    
-        
-        report_func = os.environ["Report"].split(":")[-1]
-        lamb.invoke(FunctionName=report_func, InvocationType='Event')
+        last_modified = bucket.Object("temp").get()["LastModified"]
+        if datetime.now(timezone.utc) - last_modified < timedelta(minutes=5):
+            flag = False
 
-    except:
-        # report does not exist
+    except Exception as e:
+        print(e)
+    
+    if flag:
+
         ssb_func = os.environ["SSB"].split(":")[-1]
         lamb.invoke(FunctionName=ssb_func, InvocationType='Event')
-
         
-    return {
-        'statusCode': 200,
-        "body": f"""레포트를 생성 중 입니다. 생성 후, 이메일을 통하여 리포트 URL이 발송됩니다.
-        {endpoints}
-        """,
-        "headers": {
-            'Content-Type': 'text/html;charset=UTF-8',
+        s3 = boto3.client('s3')
+        s3.put_object(Bucket=bucket_name, Key="temp", Body='')
+        
+        return {
+            'statusCode': 200,
+            "body": f"""레포트를 생성 중 입니다. 생성 후, 이메일을 통하여 리포트 URL이 발송됩니다.
+            {endpoints}
+            """,
+            "headers": {
+                'Content-Type': 'text/html;charset=UTF-8',
+            }
         }
-    }
+    
+    else:
+        KST = timezone(timedelta(hours=9))
+
+        return {
+            'statusCode': 400,
+            "body": f"API를 너무 자주 호출하였습니다. {(last_modified + timedelta(minutes=5)).astimezone(KST)} 이후 다시 호출해 주세요.",
+            "headers": {
+                'Content-Type': 'text/html;charset=UTF-8',
+            }
+        }
