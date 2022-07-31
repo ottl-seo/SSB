@@ -2,7 +2,7 @@
 test5_1 = {
     # [Danger] CloudTrail이 켜저있는지
 
-    "title": "[Test05-1] CloudTrail이 켜저있는지 여부",
+    "title": "[Test05-1] CloudTrail이 켜져있는지 여부",
 
     "Success": {
         "level": "Success",
@@ -72,6 +72,41 @@ test5_2 = {
         "msg": [
             {"text": "일부 CloudTrail이 Multi-region으로 설정되어 있지 않습니다.", "link": ""}
         ]
+    },
+    
+    "Error": {
+        "level": "Error",
+        "msg": [{"text":"진단 중 에러가 발생하였습니다.", "link": ""}]
+    }
+
+}
+
+
+test7 = {
+    # [Warning] 비용 알람 및 루트 계정 엑세스 알람
+
+    "title": "[Test07] 비용 알람 및 루트 계정 엑세스 알람 설정 여부",
+
+    "Success": {
+        "level": "Success",
+        "msg": [
+            {"text": "알람이 켜져있습니다. 비용 및 루트 계정 알람인지 확인해 주세요.", "link": ""}
+        ]
+    },
+
+    "NO_ALARM": {
+        "level": "Warning",
+        "msg": [
+                {"text": "알람이 설정되어있지 않습니다. 보안을 위해 알람을 설정해주세요.", "link":""}, 
+            ]
+    },
+    
+    "Info": {
+        "level": "Info",
+        "msg": [
+                {"text": "워크샵", "link": "https://catalog.workshops.aws/startup-security-baseline/en-US/b-securing-your-account/7-configurealarms"},
+                {"text": "을 통하여 비용 및 루트 계정 알람을 설정할 수 있습니다.", "link": ""}
+            ]
     },
     
     "Error": {

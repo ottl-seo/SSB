@@ -9,25 +9,24 @@ def lambda_handler(event, context):
     bucket = os.environ['Bucket'][13:]
     
     try:
-        iam = session.client('iam')
-        iam.generate_credential_report()
-    except:
-        pass
+        results = ssb.checks(session)
+        name = f"result-C-{datetime.date.today().isoformat()}.json"
 
-    results = ssb.check06(session)
-    print(results)
-    name = f"result-C-{datetime.date.today().isoformat()}.json"
-
-    if upload_file(bucket, name, json.dumps(results)):
-        return {
+        if upload_file(bucket, name, json.dumps(results)):
+            return {
             'statusCode': 200,
             "body": json.dumps("upload success"),
-        }
-    else:
+            }
+        else:
+            return {
+            'statusCode': 400,
+            'body': json.dumps("upload fail")
+            }
+    except:
         return {
             'statusCode': 400,
             'body': json.dumps("upload fail")
-        }
+            }
     
 def upload_file(bucket, name, file):
     encoded = bytes(file.encode('UTF-8'))

@@ -1,123 +1,134 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: An serverless application that tests the AWS SSB and generates a HTML
-  report.
+Description: An serverless application that tests the AWS SSB and generates a HTML report
+
 Parameters:
   Email:
-    Type: String
-    Description: 이메일을 입력하시고 메일을 통하여 알림을 구독할 경우 리포트 생성 알림을 받을 수 있습니다.
-  ExpireDate:
-    Description: API Endpoint의 접속이 만료되는 날짜를 설정해주세요. 만료 후에는 접속이 불가합니다.
-    Type: String
-    Default: '2022-07-30T12:00:00+09:00'
-    AllowedPattern: ^\d{4}(-\d{2}){2}[T](\d{2}:){2}\d{2}\+09:00$
-  APIKeyRequired:
-    Description: API 호출을 위해 Key를 생성합니다.
-    Default: 'false'
-    Type: String
-    AllowedValues:
-    - 'true'
-    - 'false'
+    Type: "String"
+    Description: "이메일을 입력하시고 메일을 통하여 알림을 구독할 경우 리포트 생성 알림을 받을 수 있습니다."
+  APIExpireDate:
+    Description : "API Endpoint의 접속이 만료되는 날짜를 설정해주세요. 만료 후에는 API Endpoint를 통한 접속이 불가합니다."
+    Type : "String"
+    Default : "2022-08-30T12:00:00+09:00"
+    AllowedPattern : "^\\d{4}(-\\d{2}){2}[T](\\d{2}:){2}\\d{2}\\+09:00$"
+  PreSignedURL:
+    Description : "리포트를 다운로드할 수 있도록 생성되는 pre-signed URL의 유효시간을 시간 단위로 설정해주세요. (1시간 ~ 168시간) 만료 후에는 URL을 통한 다운로드가 불가합니다."
+    Type : "Number"
+    Default : 24
+    MinValue: 1
+    MaxValue: 168
+
 Resources:
   SSBBucket:
     Type: AWS::S3::Bucket
     Metadata:
       SamResourceId: SSBBucket
+  LambdaExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: S3andLambdaPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'sts:GetCallerIdentity'
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:DeleteObject'
+                  - 'lambda:InvokeFunction'
+                  - 'sns:Publish'
+                  - 'sns:ListSubscriptionsByTopic'
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: '*'
+
   SSBExecutionRole:
-    Type: AWS::IAM::Role
+    Type: 'AWS::IAM::Role'
     Properties:
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: 2012-10-17
         Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - lambda.amazonaws.com
-          Action:
-          - sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
       Path: /
       Policies:
-      - PolicyName: read
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-          - Effect: Allow
-            Action:
-            - sts:GetCallerIdentity
-            - ec2:DescribeRegions
-            - account:GetAlternateContact
-            - iam:GenerateCredentialReport
-            - iam:GetCredentialReport
-            - iam:GetAccountPasswordPolicy
-            - iam:ListUsers
-            - iam:ListAttachedUserPolicies
-            - iam:ListUserPolicies
-            - cloudtrail:DescribeTrails
-            - cloudtrail:GetTrailStatus
-            - s3:GetAccountPublicAccessBlock
-            - s3:GetBucketPublicAccessBlock
-            - s3:ListBucket
-            - s3:ListAllMyBuckets
-            - s3:PutObject
-            - s3:DeleteObject
-            - cloudwatch:DescribeAlarms
-            - ec2:DescribeNetworkInterfaces
-            - ec2:DescribeVpcs
-            - ec2:DescribeSubnets
-            - support:DescribeTrustedAdvisorChecks
-            - guardduty:ListDetectors
-            - guardduty:GetDetector
-            - sns:Publish
-            - logs:CreateLogGroup
-            - logs:CreateLogStream
-            - logs:PutLogEvents
-            Resource: '*'
-    Metadata:
-      SamResourceId: SSBExecutionRole
-  ReportExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - lambda.amazonaws.com
-          Action:
-          - sts:AssumeRole
-      Path: /
-      Policies:
-      - PolicyName: s3Access
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-          - Effect: Allow
-            Action:
-            - s3:PutObject
-            - s3:GetObject
-            - s3:DeleteObject
-            - lambda:InvokeFunction
-            - logs:CreateLogGroup
-            - logs:CreateLogStream
-            - logs:PutLogEvents
-            Resource: '*'
-    Metadata:
-      SamResourceId: ReportExecutionRole
-  SnsTopicMetricFilterCloudWatchAlarm:
+        - PolicyName: SSBCheckPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'sts:GetCallerIdentity'
+                  - 'ec2:DescribeRegions'
+                  - 'account:GetAlternateContact'
+                  - 'iam:GenerateCredentialReport'
+                  - 'iam:GetCredentialReport'
+                  - 'iam:GetAccountPasswordPolicy'
+                  - 'iam:ListUsers'
+                  - 'iam:ListAttachedUserPolicies'
+                  - 'iam:ListUserPolicies'
+                  - 'cloudtrail:DescribeTrails'
+                  - 'cloudtrail:GetTrailStatus'
+                  - 's3:GetAccountPublicAccessBlock'
+                  - 's3:GetBucketPublicAccessBlock'
+                  - 's3:ListBucket'
+                  - 's3:ListAllMyBuckets'
+                  - 's3:PutObject'
+                  - 's3:DeleteObject'
+                  - 'cloudwatch:DescribeAlarms'
+                  - 'ec2:DescribeNetworkInterfaces'
+                  - 'ec2:DescribeVpcs'
+                  - 'ec2:DescribeSubnets'
+                  - 'support:DescribeTrustedAdvisorChecks'
+                  - 'guardduty:ListDetectors'
+                  - 'guardduty:GetDetector'
+                  - 'sns:Publish'
+                  - 'lambda:InvokeFunction'
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: '*'
+  SnsTopic:
     Type: AWS::SNS::Topic
     Properties:
       Subscription:
-      - Endpoint:
-          Ref: Email
-        Protocol: email
-      TopicName: SSB-generation-alarm
-    Metadata:
-      SamResourceId: SnsTopicMetricFilterCloudWatchAlarm
-  
+        - Endpoint: !Ref Email
+          Protocol: 'email'
+
 ##########################################################################
 #  Lambda functions                                                      #
 ##########################################################################
+  EntryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !GetAtt LambdaExecutionRole.Arn
+      CodeUri: lambda/entry/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.9
+      Timeout: 10
+      Environment: 
+        Variables:
+          Bucket: !GetAtt SSBBucket.Arn
+          Topic: !Ref SnsTopic
+      Architectures:
+        - x86_64
   CheckAFunction:
     Type: AWS::Serverless::Function 
     Properties:
@@ -132,10 +143,7 @@ Resources:
       MemorySize: 256
       Environment:
         Variables:
-          Bucket:
-            Fn::GetAtt:
-            - SSBBucket
-            - Arn
+          Bucket: !GetAtt SSBBucket.Arn
       Architectures:
       - x86_64
     Metadata:
@@ -154,10 +162,7 @@ Resources:
       MemorySize: 256
       Environment:
         Variables:
-          Bucket:
-            Fn::GetAtt:
-            - SSBBucket
-            - Arn
+          Bucket: !GetAtt SSBBucket.Arn
       Architectures:
       - x86_64
     Metadata:
@@ -176,10 +181,7 @@ Resources:
       MemorySize: 256
       Environment:
         Variables:
-          Bucket:
-            Fn::GetAtt:
-            - SSBBucket
-            - Arn
+          Bucket: !GetAtt SSBBucket.Arn
       Architectures:
       - x86_64
     Metadata:
@@ -198,53 +200,42 @@ Resources:
       MemorySize: 256
       Environment:
         Variables:
-          Bucket:
-            Fn::GetAtt:
-            - SSBBucket
-            - Arn
+          Bucket: !GetAtt SSBBucket.Arn
       Architectures:
       - x86_64
     Metadata:
       SamResourceId: CheckDFunction
   ApiGatewayEndpoint:
-    Type: AWS::Serverless::Api
+    Type: 'AWS::Serverless::Api'
     Properties:
       StageName: Prod
       Auth:
-        ApiKeyRequired: true
-        UsagePlan:
-          CreateUsagePlan: PER_API
-          UsagePlanName: GatewayAuthorization
         ResourcePolicy:
-          CustomStatements:
-            Effect: Allow
-            Principal: '*'
-            Action: execute-api:Invoke
-            Resource:
-            - execute-api:/*/*/*
-            Condition:
-              DateLessThan:
-                aws:CurrentTime:
-                  Ref: ExpireDate
-    Metadata:
-      SamResourceId: ApiGatewayEndpoint
+          CustomStatements: {
+              Effect: "Allow",
+              Principal: "*",
+              Action: "execute-api:Invoke",
+              Resource: ['execute-api:/*/*/*'],
+              Condition: {
+                DateLessThan: {
+                  "aws:CurrentTime": !Ref APIExpireDate
+                }
+              }
+          }
+
   ReportFunction:
     Type: AWS::Serverless::Function 
     Properties:
-      Role:
-        Fn::GetAtt:
-        - ReportExecutionRole
-        - Arn
+      Role: !GetAtt LambdaExecutionRole.Arn
       CodeUri: lambda/report/
       Handler: lambda_function.lambda_handler
       Runtime: python3.9
       Timeout: 10
       Environment:
         Variables:
-          Bucket:
-            Fn::GetAtt:
-            - SSBBucket
-            - Arn
+          Bucket: !GetAtt SSBBucket.Arn
+          Topic: !Ref SnsTopic
+          Presigned: !Ref PreSignedURL
       Architectures:
       - x86_64
       Events:
@@ -264,16 +255,17 @@ Resources:
   SSBStateMachine:
     Type: 'AWS::Serverless::StateMachine'
     Properties:
-      DefinitionUri: statemachine/statemachine.asl.json
+      DefinitionUri: statemachine/statemachine2.asl.json
       DefinitionSubstitutions:
+        entryFunction: !Ref EntryFunction
         checkAFunction: !Ref CheckAFunction
         checkBFunction: !Ref CheckBFunction
         checkCFunction: !Ref CheckCFunction
         checkDFunction: !Ref CheckDFunction
         reportFunction: !Ref ReportFunction
-        ApiGatewayEndpoint: !Ref ApiGatewayEndpoint
-        snsTopic: SnsTopicMetricFilterCloudWatchAlarm
       Policies:
+        - LambdaInvokePolicy: 
+            FunctionName: !Ref EntryFunction
         - LambdaInvokePolicy: 
             FunctionName: !Ref CheckAFunction
         - LambdaInvokePolicy: 
@@ -284,5 +276,3 @@ Resources:
             FunctionName: !Ref CheckDFunction
         - LambdaInvokePolicy: 
             FunctionName: !Ref ReportFunction
-        - SNSPublishMessagePolicy:
-            TopicName: !GetAtt SnsTopicMetricFilterCloudWatchAlarm.TopicName
